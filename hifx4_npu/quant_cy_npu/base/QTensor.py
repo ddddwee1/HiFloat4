@@ -28,7 +28,7 @@ QFUNC_MAP: Tuple[Tuple[str, Callable], ...] = ((r'^int8sym$', quant_int8sym),
 
 NPU_KERNELS: Tuple[Tuple[str, NPU_FUNC_BUNDLE_T], ...] = (
                 (r'^hifx[0-9]*$', (npu_quant.hifx_quant, npu_quant.hifx_quant_bf16, None)),
-                (r'^mbsmxfp4$', (None, npu_quant.mbsmxfp4_quant_bf16, None)),
+                (r'^mbsmxfp4$', (npu_quant.mbsmxfp4_quant, npu_quant.mbsmxfp4_quant_bf16, None)),
                 (r'^mxfp4$', (npu_quant.mxfp4_quant, npu_quant.mxfp4_quant_bf16, None),),
                 (r'^mxfp8e4m3$', (npu_quant.mxfp8e4m3_quant, npu_quant.mxfp8e4m3_quant_bf16, None)),
                 (r'^nvf4$', (npu_quant.nvf4_quant, npu_quant.nvf4_quant_bf16, None)),
