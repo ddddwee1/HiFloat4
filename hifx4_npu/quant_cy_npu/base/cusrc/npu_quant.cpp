@@ -10,6 +10,7 @@ void run_nvf4_kernel(uint32_t blockDim, void* stream, uint8_t* xmtx, uint8_t* ou
 void run_nvf4_kernel_bf16(uint32_t blockDim, void* stream, uint8_t* xmtx, uint8_t* out, int M, int N);
 void run_hifx_kernel(uint32_t blockDim, void* stream, uint8_t* xmtx, uint8_t* out, int M, int N, int mant_bit);
 void run_hifx_kernel_bf16(uint32_t blockDim, void* stream, uint8_t* xmtx, uint8_t* out, int M, int N, int mant_bit);
+void run_mbsmxfp4_kernel_bf16(uint32_t blockDim, void* stream, uint8_t* xmtx, uint8_t* out, uint8_t* workspace, int M, int N);
 
 void mxfp4_quant(at::Tensor x, at::Tensor y){
     int devidx = x.device().index();
@@ -83,6 +84,16 @@ void hifx_quant_bf16(at::Tensor x, at::Tensor y, int mant_bit){
     run_hifx_kernel_bf16(40, aclstream, (uint8_t*)(x.storage().data()), (uint8_t*)(y.storage().data()), M, N, mant_bit);
 }
 
+void mbsmxfp4_quant_bf16(at::Tensor x, at::Tensor y){
+    int devidx = x.device().index();
+    int M = x.numel() / x.size(-1);
+    int N = x.size(-1);
+    auto workspace = at::zeros({16 * 1024 * 1024}, x.options().dtype(at::kByte));
+    c10_npu::NPUStream stream = c10_npu::getCurrentNPUStream(devidx);
+    void* aclstream = stream.stream();
+    run_mbsmxfp4_kernel_bf16(40, aclstream, (uint8_t*)(x.storage().data()), (uint8_t*)(y.storage().data()), (uint8_t*)(workspace.storage().data()), M, N);
+}
+
 
 
 PYBIND11_MODULE(TORCH_EXTENSION_NAME, m) {
@@ -94,4 +105,5 @@ PYBIND11_MODULE(TORCH_EXTENSION_NAME, m) {
     m.def("nvf4_quant_bf16", &nvf4_quant_bf16, "nvf4_quant_bf16");
     m.def("hifx_quant", &hifx_quant, "hifx_quant");
     m.def("hifx_quant_bf16", &hifx_quant_bf16, "hifx_quant_bf16");
+    m.def("mbsmxfp4_quant_bf16", &mbsmxfp4_quant_bf16, "mbsmxfp4_quant_bf16");
 }

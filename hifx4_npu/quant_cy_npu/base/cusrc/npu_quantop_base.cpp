@@ -2,3 +2,4 @@
 #include "mxfp8e4m3_quant_op.h"
 #include "nvf4_quant_op.h"
 #include "hifx_quant_op.h"
+#include "mbsmxfp4_quant_op.h"

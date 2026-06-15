@@ -125,6 +125,14 @@ def To_NVF4(x, G = 16):
     return res
 
 def To_BF16(x):
+    if np.isnan(x):
+        return np.float32(np.nan)
+    if np.isposinf(x):
+        return np.float32(np.inf)
+    if np.isneginf(x):
+        return np.float32(-np.inf)
+    if x == 0:
+        return np.float32(0.0)
     x = np.float32(x)
     tmp = np.abs(x)
     E = np.floor(np.log2(tmp + 2**(-1000)))
@@ -198,10 +206,12 @@ def To_HiFX(x, N = 4, M=2, G = 64):
     for i in range(Mcnt):
         for j in range(Ni):
             ori = x[i*G:i*G+G,j]
+            finite_mask = np.isfinite(ori)
+            ori_finite = np.where(finite_mask, ori, 0.0)
             S = np.ones(G)  # sign of grp values
-            S[ori < 0] = -1
+            S[ori_finite < 0] = -1
             S = S.T
-            tmpG = np.abs(ori)   # abs of grp values
+            tmpG = np.abs(ori_finite)   # abs of finite grp values
             V16 = np.zeros(16, dtype=np.float32)
             for k in range(16):
                 V16[k] = np.max(tmpG[k*4:k*4+4])
@@ -238,6 +248,9 @@ def To_HiFX(x, N = 4, M=2, G = 64):
             in_grp[in_grp >= 2] = 2- 2**(-Ng)       # Overflow Handling
             grp = E6M2 * 2.0 ** DE64 * in_grp
             grp = grp * S
+            grp[np.isnan(ori)] = np.nan
+            grp[np.isposinf(ori)] = np.inf
+            grp[np.isneginf(ori)] = -np.inf
 
             res   [i*G:i*G+G,    j] = grp
             # GE6M2 [i,            j] = E6M2

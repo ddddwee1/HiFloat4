@@ -27,6 +27,17 @@ class QType():
             ... 
         elif desc.lower()=='nvf4':
             self.blk_size = 16
+        elif desc.lower() == 'mbsmxfp4':
+            self.desc = 'mbsmxfp4'
+            self.exp_bits = 2
+            self.man_bits = 1
+            self.k_bits = 8
+            self.blk_outer_size = 4
+            self.blk_size = 32
+            self.exp_max = 2
+            self.exp_min = -2
+            self.k_max = 127
+            self.fp_val_max = 6.0
         else:
             # convert special types to universal type representation
             if desc.lower()=='mxfp4':

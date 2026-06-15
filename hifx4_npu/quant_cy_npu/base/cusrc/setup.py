@@ -1,41 +1,47 @@
-import os 
+import os
+import subprocess
 from setuptools import setup, Extension
 from torch.utils import cpp_extension
 
 
-# some global variables 
+# some global variables
 ascend_op_extension_name = 'npu_quant_op'
 ascend_op_src_files = ['npu_quantop_base.cpp']
-ascend_toolkit_install_path='/usr/local/Ascend/ascend-toolkit/latest'
+ascend_toolkit_install_path = os.environ.get('ASCEND_HOME_PATH', '/usr/local/Ascend/ascend-toolkit/latest')
 
 pytorch_extension_name = 'npu_quant'
 pytorch_interface_cpp_files = ['npu_quant.cpp']
 
 
 # build ascend op
-ascend_include_paths=[
+ascend_include_candidates = [
     ascend_toolkit_install_path + '/aarch64-linux/tikcpp/tikcfw/',
+    ascend_toolkit_install_path + '/aarch64-linux/tikcpp/tikcfw/include',
     ascend_toolkit_install_path + '/aarch64-linux/tikcpp/tikcfw/interface',
     ascend_toolkit_install_path + '/aarch64-linux/tikcpp/tikcfw/impl',
     ascend_toolkit_install_path + '/aarch64-linux/tikcpp/tikcfw/kernel_tiling',
     ascend_toolkit_install_path + '/aarch64-linux/tikcpp/tikcfw/op_frame',
+    ascend_toolkit_install_path + '/aarch64-linux/asc/include',
+    ascend_toolkit_install_path + '/aarch64-linux/ascendc/include',
+    ascend_toolkit_install_path + '/aarch64-linux/include',
+    ascend_toolkit_install_path + '/runtime/include',
 ]
+ascend_include_paths = [p for p in ascend_include_candidates if os.path.isdir(p)]
 ascend_libraries = ['runtime', 'ascendcl']
 ascend_library_paths = [
     ascend_toolkit_install_path + '/runtime/lib64',
 ]
 
-cmd = 'ccec -O3 -xcce '
-cmd += ' '.join(ascend_op_src_files) + ' '
-cmd += '--cce-aicore-arch=dav-c220-vec '
+cmd = ['ccec', '-O3', '-xcce']
+cmd += ascend_op_src_files
+cmd += ['--cce-aicore-arch=dav-c220-vec']
+cmd += ['-L' + p for p in ascend_library_paths]
+cmd += ['-I' + p for p in ascend_include_paths]
+cmd += ['-l' + l for l in ascend_libraries]
+cmd += ['-shared', '-fPIC', '-o', 'lib' + ascend_op_extension_name + '.so', '-std=c++17']
 
-cmd += ' '.join(['-L'+p for p in ascend_library_paths]) + ' '
-cmd += ' '.join(['-I'+p for p in ascend_include_paths]) + ' '
-cmd += ' '.join(['-l'+l for l in ascend_libraries]) + ' '
-cmd += '-shared -fPIC -o lib' + ascend_op_extension_name + '.so -std=c++17 '
-
-print(cmd)
-os.system(cmd)
+print(' '.join(cmd))
+subprocess.run(cmd, check=True)
 
 
 # build pytorch extension 

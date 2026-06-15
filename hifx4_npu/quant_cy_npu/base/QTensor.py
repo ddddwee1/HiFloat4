@@ -14,6 +14,7 @@ from .QFuncs.quant_basic import quant_py
 from .QFuncs.int8 import quant_int8sym
 from .QFuncs.nvf4 import quant_nvf4
 from .QFuncs.hifx import quant_hifx
+from .QFuncs.mbsmxfp4 import quant_mbsmxfp4
 
 
 # type defs 
@@ -21,11 +22,13 @@ NPU_FUNC_BUNDLE_T = Tuple[Optional[Callable], Optional[Callable], Optional[Calla
 
 QFUNC_MAP: Tuple[Tuple[str, Callable], ...] = ((r'^int8sym$', quant_int8sym),
                                                (r'^hifx[0-9]*$', quant_hifx),
+                                               (r'^mbsmxfp4$', quant_mbsmxfp4),
                                                (r'^nvf4$', quant_nvf4),
                                             )
 
 NPU_KERNELS: Tuple[Tuple[str, NPU_FUNC_BUNDLE_T], ...] = (
                 (r'^hifx[0-9]*$', (npu_quant.hifx_quant, npu_quant.hifx_quant_bf16, None)),
+                (r'^mbsmxfp4$', (None, npu_quant.mbsmxfp4_quant_bf16, None)),
                 (r'^mxfp4$', (npu_quant.mxfp4_quant, npu_quant.mxfp4_quant_bf16, None),),
                 (r'^mxfp8e4m3$', (npu_quant.mxfp8e4m3_quant, npu_quant.mxfp8e4m3_quant_bf16, None)),
                 (r'^nvf4$', (npu_quant.nvf4_quant, npu_quant.nvf4_quant_bf16, None)),
@@ -79,11 +82,13 @@ def get_npu_func(x: Tensor, Q: QType) -> Optional[Callable[[Tensor], Tensor]]:
                 cvt_fp32 = True 
             
             if qfuncs[idx] is None:
-                idx = 0
-                cvt_fp32 = True 
-            
+                if idx != 0 and qfuncs[0] is not None:
+                    idx = 0
+                    cvt_fp32 = True
+                else:
+                    return None
+
             f_sel = qfuncs[idx]
-            # print('DTYPE IDX', idx)
             assert f_sel is not None
             return partial(func_wrapper, func=f_sel, cvt_fp32=cvt_fp32)
     return None 
@@ -178,4 +183,3 @@ def quant_slide_window(x: Tensor, Q: QType, force_py: bool=False, force_fp32: bo
     if qdim>0:
         qdim = qdim - len(x.shape)
     return QuantSlideWindow.apply(x, Q, force_py, force_fp32, qdim, win_size)   # type: ignore
-
