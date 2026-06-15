@@ -12,6 +12,9 @@ MACRO_GROUP = 128
 INNER_GROUP = 32
 INNER_PER_MACRO = 4
 E8M0_MIN_VALUE = 2.0 ** -127
+_A2_DIV_FAMILY10_TOWARD_ZERO = frozenset([8, 10, 78, 124])
+_A2_DIV_FAMILY10_AWAY_FROM_ZERO = frozenset([232])
+_A2_DIV_FAMILY15_TOWARD_ZERO = frozenset([8, 29, 46, 91, 102, 104, 108, 122, 140])
 
 
 def _e0m8_macro_factor(amax: Tensor) -> Tensor:
@@ -43,6 +46,37 @@ def _quantize_e2m1(x: Tensor) -> Tensor:
     return quant_abs * torch.sign(x)
 
 
+def _a2_mbs_div_fp32_sim(prediv: Tensor, factor: Tensor) -> Tensor:
+    def _mask_from_codes(codes: Tensor, values) -> Tensor:
+        mask = torch.zeros_like(codes, dtype=torch.bool)
+        for v in values:
+            mask |= codes == int(v)
+        return mask
+
+    ref = prediv / factor
+    toward_zero = torch.nextafter(ref, torch.zeros_like(ref))
+    away_dir = torch.where(ref >= 0, torch.full_like(ref, torch.inf), torch.full_like(ref, -torch.inf))
+    away_from_zero = torch.nextafter(ref, away_dir)
+
+    abs_prediv = prediv.abs().contiguous()
+    abs_bits = abs_prediv.view(torch.int32)
+    mantissa = abs_bits & 0x007FFFFF
+    is_zero = abs_prediv == 0
+    family15 = (~is_zero) & (mantissa == 0x00400000)
+    family10 = (~is_zero) & (mantissa == 0x00000000)
+
+    factor_k = torch.round((factor.to(torch.float64) - 1.0) * 256.0).to(torch.int64)
+
+    out = ref
+    family10_toward = family10 & _mask_from_codes(factor_k, _A2_DIV_FAMILY10_TOWARD_ZERO)
+    family10_away = family10 & _mask_from_codes(factor_k, _A2_DIV_FAMILY10_AWAY_FROM_ZERO)
+    family15_toward = family15 & _mask_from_codes(factor_k, _A2_DIV_FAMILY15_TOWARD_ZERO)
+
+    out = torch.where(family10_toward | family15_toward, toward_zero, out)
+    out = torch.where(family10_away, away_from_zero, out)
+    return out
+
+
 @torch.no_grad()
 def quant_mbsmxfp4(x: Tensor, Q: QType, qdim: int) -> Tensor:
     del Q
@@ -56,5 +90,5 @@ def quant_mbsmxfp4(x: Tensor, Q: QType, qdim: int) -> Tensor:
     amax32 = normalized.abs().amax(dim=-1, keepdim=True)
     scale = _floor_e8m0_scale(amax32 / E2M1_MAX)
     q = _quantize_e2m1(normalized / scale) * scale
-    out = q / factor
+    out = _a2_mbs_div_fp32_sim(q, factor)
     return out.reshape(x_shape)

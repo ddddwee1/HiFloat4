@@ -23,6 +23,7 @@ __aicore__ inline void mbsmxfp4_kernel_vec_f32(GM_ADDR x_, GM_ADDR y_, GM_ADDR w
     GlobalTensor<float> x_macro = x;
     GlobalTensor<float> y_macro = y;
     DBuff<float, TPosition::VECCALC> x_float_buf; x_float_buf.Init(40 * 128);
+    DBuff<float, TPosition::VECCALC> y_float_buf; y_float_buf.Init(40 * 128);
     LocalTensor<float> macro_abs = AllocateLocalTensor<TPosition::VECCALC, float>(40 * 128);
     LocalTensor<float> q_abs = AllocateLocalTensor<TPosition::VECCALC, float>(40 * 128);
     LocalTensor<float> neg_q_abs = AllocateLocalTensor<TPosition::VECCALC, float>(40 * 128);
@@ -62,6 +63,7 @@ __aicore__ inline void mbsmxfp4_kernel_vec_f32(GM_ADDR x_, GM_ADDR y_, GM_ADDR w
         _tmp_devent_ready_ubin_0.wait();
         _tmp_devent_valid_ubout_0.wait();
         LocalTensor<float> x_float = x_float_buf.get(tile_idx);
+        LocalTensor<float> y_float = y_float_buf.get(tile_idx);
         Abs<float, false>(macro_abs, x_float, MASK_PLACEHOLDER, 2 * valid_macros, {(uint16_t)1, (uint16_t)1, (uint8_t)8, (uint8_t)8});
         PipeBarrier<PIPE_V>();
         WholeReduceMax<float, false>(macro_left_s, macro_abs, MASK_PLACEHOLDER, valid_macros, 1, 1, 16, ReduceOrder::ORDER_ONLY_VALUE);
@@ -241,13 +243,13 @@ __aicore__ inline void mbsmxfp4_kernel_vec_f32(GM_ADDR x_, GM_ADDR y_, GM_ADDR w
             ResetMask();
             PipeBarrier<PIPE_V>();
         }
-        Div<float, false>(x_float, x_float, macro_factor_bcast, MASK_PLACEHOLDER, valid_macros, {(uint8_t)1, (uint8_t)1, (uint8_t)0, (uint8_t)16, (uint8_t)16, (uint8_t)1});
+        Div<float, false>(y_float, x_float, macro_factor_bcast, MASK_PLACEHOLDER, valid_macros, {(uint8_t)1, (uint8_t)1, (uint8_t)0, (uint8_t)16, (uint8_t)16, (uint8_t)1});
         PipeBarrier<PIPE_V>();
-        Div<float, false>(x_float[64], x_float[64], macro_factor_bcast, MASK_PLACEHOLDER, valid_macros, {(uint8_t)1, (uint8_t)1, (uint8_t)0, (uint8_t)16, (uint8_t)16, (uint8_t)1});
+        Div<float, false>(y_float[64], x_float[64], macro_factor_bcast, MASK_PLACEHOLDER, valid_macros, {(uint8_t)1, (uint8_t)1, (uint8_t)0, (uint8_t)16, (uint8_t)16, (uint8_t)1});
         PipeBarrier<PIPE_V>();
         _tmp_devent_ready_ubout_0.set();
         _tmp_devent_ready_ubout_0.wait();
-        UB2GMPAD(y_macro[macro0 * 128], x_float, valid_macros, 512, 0, 0);
+        UB2GMPAD(y_macro[macro0 * 128], y_float, valid_macros, 512, 0, 0);
         PipeBarrier<PIPE_MTE3>();
         _tmp_devent_valid_ubin_0.set();
         _tmp_devent_valid_ubout_0.set();
