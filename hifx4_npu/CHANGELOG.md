@@ -1,5 +1,28 @@
 # Changelog
 
+## 2026-06-18
+
+### Fixed
+
+- `mbsmxfp4`: changed the per-128 macro-factor target peak from `6.0` (E2M1_MAX)
+  to `1.0`, in both the Torch reference (`quant_cy_npu/base/QFuncs/mbsmxfp4.py`,
+  via a new `MACRO_FACTOR_TARGET` constant) and the AscendC kernel
+  (`quant_cy_npu/base/cusrc/mbsmxfp4_quant_op.h`, the `six_s` duplicate in both
+  the float and bf16 kernels). With `6.0`, an input whose per-128 amax lands near
+  a power of two — int8 cast to float, amax ~ 128 = 2^7 — gets macro factor
+  `M ~ 1.5`, which shifts every non-max inner group's e8m0 log-phase into the
+  e2m1 clamp band and collapses SQNR (~ -7 dB vs plain MXFP4). `1.0` makes
+  `M ~ 1.0` there so MBS degrades gracefully to plain MXFP4, and it also lifts
+  the random-float case from ~ -1.9 dB to ~ +1.2 dB vs plain. The inner per-32
+  e8m0/e2m1 path still uses `E2M1_MAX = 6.0`.
+
+### Validated
+
+- Rebuilt `npu_quant` (`build_npu_ops.sh`) and re-ran
+  `quant_cy_npu/test_cases/mbsmxfp4.py` on real A2 hardware. NPU-vs-Torch max abs
+  diff = `0.0` for float32 and bfloat16, on both random finite inputs and the
+  all-zero case.
+
 ## 2026-06-15
 
 Related paper:

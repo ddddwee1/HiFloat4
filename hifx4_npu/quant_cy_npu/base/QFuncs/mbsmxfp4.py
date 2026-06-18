@@ -8,6 +8,11 @@ FP32_EXP_MASK = 0x7F800000
 FP32_MANTISSA_TOP8_MASK = 0x007F8000
 FP32_MANTISSA_TOP8_SHIFT = 15
 E2M1_MAX = 6.0
+# Per-128 macro-factor target peak. Paper Eq.3 uses E2M1_MAX (6.0); we use 1.0 so a macro
+# amax near a power of two (int8 cast to float, amax ~ 128 = 2^7) gives M ~ 1.0 instead of
+# ~ 1.5 and avoids shifting the non-max inner groups into the e2m1 clamp band (SQNR
+# collapse). The inner per-32 e8m0/e2m1 path still uses E2M1_MAX.
+MACRO_FACTOR_TARGET = 1.0
 MACRO_GROUP = 128
 INNER_GROUP = 32
 INNER_PER_MACRO = 4
@@ -19,7 +24,7 @@ _A2_DIV_FAMILY15_TOWARD_ZERO = frozenset([8, 29, 46, 91, 102, 104, 108, 122, 140
 
 def _e0m8_macro_factor(amax: Tensor) -> Tensor:
     safe = torch.where(amax > 0, amax, torch.ones_like(amax)).to(torch.float32)
-    recip = (E2M1_MAX / safe).contiguous()
+    recip = (MACRO_FACTOR_TARGET / safe).contiguous()
     bits = recip.view(torch.int32)
     top8 = (bits & FP32_MANTISSA_TOP8_MASK) >> FP32_MANTISSA_TOP8_SHIFT
     factor = 1.0 + top8.to(torch.float32) / 256.0

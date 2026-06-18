@@ -51,7 +51,7 @@ __aicore__ inline void mbsmxfp4_kernel_vec_f32(GM_ADDR x_, GM_ADDR y_, GM_ADDR w
     int tile_begin = tiles_per_core * GetBlockIdx();
     int tile_end = Min(tile_begin + tiles_per_core, n_tiles);
     Duplicate<float, false>(one_s, (float)1.0f, MASK_PLACEHOLDER, CeilDiv(64, 64), 1, 0);
-    Duplicate<float, false>(six_s, (float)6.0f, MASK_PLACEHOLDER, CeilDiv(64, 64), 1, 0);
+    Duplicate<float, false>(six_s, (float)1.0f, MASK_PLACEHOLDER, CeilDiv(64, 64), 1, 0);  // macro-factor target 6.0 -> 1.0: keeps M~1.0 when amax~2^k (int8 cast), avoids e2m1 clamp-band SQNR collapse (inner e2m1/e8m0 below still use 6.0)
     Duplicate<float, false>(min_scale_s, (float)5.877471754111438e-39f, MASK_PLACEHOLDER, CeilDiv(64, 64), 1, 0);
     Duplicate<int, false>(exp_mask_i32, (int)2139095040, MASK_PLACEHOLDER, CeilDiv(64, 64), 1, 0);
     for (int tile_idx = tile_begin; tile_idx < tile_end; tile_idx += 1) {
@@ -302,7 +302,7 @@ __aicore__ inline void mbsmxfp4_kernel_vec_bf16(GM_ADDR x_, GM_ADDR y_, GM_ADDR 
     int tile_begin = tiles_per_core * GetBlockIdx();
     int tile_end = Min(tile_begin + tiles_per_core, n_tiles);
     Duplicate<float, false>(one_s, (float)1.0f, MASK_PLACEHOLDER, CeilDiv(64, 64), 1, 0);
-    Duplicate<float, false>(six_s, (float)6.0f, MASK_PLACEHOLDER, CeilDiv(64, 64), 1, 0);
+    Duplicate<float, false>(six_s, (float)1.0f, MASK_PLACEHOLDER, CeilDiv(64, 64), 1, 0);  // macro-factor target 6.0 -> 1.0: keeps M~1.0 when amax~2^k (int8 cast), avoids e2m1 clamp-band SQNR collapse (inner e2m1/e8m0 below still use 6.0)
     Duplicate<float, false>(min_scale_s, (float)5.877471754111438e-39f, MASK_PLACEHOLDER, CeilDiv(64, 64), 1, 0);
     Duplicate<int, false>(exp_mask_i32, (int)2139095040, MASK_PLACEHOLDER, CeilDiv(64, 64), 1, 0);
     for (int tile_idx = tile_begin; tile_idx < tile_end; tile_idx += 1) {
