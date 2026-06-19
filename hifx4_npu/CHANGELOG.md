@@ -1,5 +1,18 @@
 # Changelog
 
+## 2026-06-19
+
+### Changed
+
+- `mbsmxfp4`: migrated the current EasyASC-validated MBS-MXFP4 semantics back
+  into `hifx4_npu`. The per-128 e0m8 macro factor target is again the paper's
+  `6.0 / amax128`, while the inner per-32 MXFP4 scale now follows the HiFloat4
+  NPU `mxfp4` floor-scale rule, `e8m0_floor(amax32 / 4)`.
+- Updated both the Torch reference
+  (`quant_cy_npu/base/QFuncs/mbsmxfp4.py`) and the AscendC kernel
+  (`quant_cy_npu/base/cusrc/mbsmxfp4_quant_op.h`). The migrated kernel also
+  carries the EasyASC tile-32 layout and guard-row scratch sizing.
+
 ## 2026-06-18
 
 ### Fixed

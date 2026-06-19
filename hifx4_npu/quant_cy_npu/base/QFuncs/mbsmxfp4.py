@@ -8,11 +8,11 @@ FP32_EXP_MASK = 0x7F800000
 FP32_MANTISSA_TOP8_MASK = 0x007F8000
 FP32_MANTISSA_TOP8_SHIFT = 15
 E2M1_MAX = 6.0
-# Per-128 macro-factor target peak. Paper Eq.3 uses E2M1_MAX (6.0); we use 1.0 so a macro
-# amax near a power of two (int8 cast to float, amax ~ 128 = 2^7) gives M ~ 1.0 instead of
-# ~ 1.5 and avoids shifting the non-max inner groups into the e2m1 clamp band (SQNR
-# collapse). The inner per-32 e8m0/e2m1 path still uses E2M1_MAX.
-MACRO_FACTOR_TARGET = 1.0
+E2M1_EXP_MAX = 2
+MXFP4_FLOOR_SCALE_INPUT_FACTOR = 1.0 / (2.0 ** E2M1_EXP_MAX)
+# Per-128 macro-factor target peak from the MBS-MXFP4 paper. Only the macro
+# factor uses this; the inner per-32 MXFP4 path uses the HiFloat4 floor-scale rule.
+MACRO_FACTOR_TARGET = E2M1_MAX
 MACRO_GROUP = 128
 INNER_GROUP = 32
 INNER_PER_MACRO = 4
@@ -93,7 +93,7 @@ def quant_mbsmxfp4(x: Tensor, Q: QType, qdim: int) -> Tensor:
     normalized = x_grouped * factor
 
     amax32 = normalized.abs().amax(dim=-1, keepdim=True)
-    scale = _floor_e8m0_scale(amax32 / E2M1_MAX)
+    scale = _floor_e8m0_scale(amax32 * MXFP4_FLOOR_SCALE_INPUT_FACTOR)
     q = _quantize_e2m1(normalized / scale) * scale
     out = _a2_mbs_div_fp32_sim(q, factor)
     return out.reshape(x_shape)
